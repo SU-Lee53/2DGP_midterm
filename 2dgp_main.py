@@ -58,7 +58,7 @@ def handle_events():
 # SDL_KEYDOWN/KEYUP: 키보드가 눌리거나 떼어질때. event.key에 눌린 값이 들어옴
 # SDL_MOUSEMOTION: 마우스가 움직이면 발생. event.x, event.y에 좌표 넘어옴
 # SDL_MOUSEBUTTONDOWN/MOUSEBUTTONUP: 마우스 버튼 입력
-#																		 -> 눌린 버튼의 종류가 event.button에 들어감, 좌표도 감
+#		-> 눌린 버튼의 종류가 event.button에 들어감, 좌표도 감
 # SDL_MOUSEWHEEL: 마우스휠. event.wheel.x, event.wheel.y에 스크롤양이 들어옴
 
 # SDL 키코드는 존나많음
