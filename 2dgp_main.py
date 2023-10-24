@@ -221,11 +221,11 @@ class Boy:
 #		- Boy의 handle_event는 메인의 handle_event가 입력 이벤트를 받아서 넘겨줌
 #		 혹은 각각의 상태에서 "TIME_OUT"과 같은 이벤트를 넘겨줌
 #		- 그러면 Boy.handle_event()에서 받아온 입력 이벤트와 상태 이벤트인 'INPUT'을 튜플로 묶어
-#		 자신의 StateMachine.handle_event로 넘김(객체가 StateMachine 함수를 변수로 갖고있음)
-#				- python에서는 변수에 함수를 저장하는것이 가능
+#		 자신의 StateMachine.handle_event로 넘김(객체가 StateMachine 객체를 변수로 갖고있음)
+#				- python에서는 변수에 객체를 저장하는것이 가능, 참고로 함수도 저장 가능
 #		- StateMachine에는 딕셔너리 형태로 상태변환이 구현되어 있는데 이는 객체 생성시 초기화됨
 #		- 상태변환(self.transitions) 딕셔너리는 key와에 현재상태(cur_state),
-#		 value에 이벤트 {체크 함수:다음 상태} 형태의 딕셔너리를 가지고 있음ㄷㄷ
+#		 value에 이벤트 {체크 함수:다음 상태} 형태의 딕셔너리를 가지고 있음
 # 	- for check_event, next_state in self.transitions[self.cur_state].items()
 #		 이 코드는 transition에서 현재 상태의 키를 갖는 밸류의 쌍을 items()로 불러와
 #		 key와 value를 각각 check_event와 next_state에 넣어줌
