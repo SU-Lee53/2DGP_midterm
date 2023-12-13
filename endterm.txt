@@ -1,0 +1,368 @@
+
+기말고사 범위: LEC12 게임 월드 ~ LEC19 사운드 및 패키징 + LEC20 정리
+
+
+
+- LEC12 게임월드
+    1. 캐릭터의 상태: 소년이 SPACE를 누르면 IDLE, RUN 상태에 상관없이 축구공을 발사하도록 만들어보자
+        - 상태 다이어그램
+            - Sleep -> Idle -> Run 에서 Idle, Run에 SPACE 루프를 추가
+            - boy의 transitions 수정
+                - Idle과 Run에서 space_down시 다시 Idle, Run으로 돌아오도록 루프 추가
+                - Boy에게 fire_ball 함수 추가: 바라보는 방향으로 공을 발사하는 함수
+                - Idle과 Run의 State에 exit에서 입력을 확인하도록 하고 space_down이 감지되면 boy.fire_ball() 발사
+                    @staticmethod
+                    def exit(boy, e):
+                        if space_down(e):
+                            boy.fire_ball()
+
+    2. 게임 월드 game_world.py
+        - 게임월드는 말그대로 게임 월드내의 객체들을 관리 -> 추가, 삭제, 업데이트, 렌더등을 수행
+        - depth 개념의 추가: objects를 다차원 리스트로 만들어 layer구분[[],[]] -> 앞으로 이 다차원 리스트를 순회하며 관리
+        - 예) 업데이트의 예시(game_world.py)
+            def update():
+                for layer in objects:
+                    for o in layer:
+                        o.update()
+
+        - 객체들도 depth를 이용하도록 수정해야함
+            grass = Grass()
+            game_world.add_object(grass,0) # layer 0: 가장 뒤쪽 == 배경
+            boy = Boy()
+            game_world.add_object(boy,1)   # layer 1: 앞쪽
+
+
+- LEC13 게임 프레임웍(game_framework.py)
+    - 게임모드, 게임 프레임웍, 로고화면/타이틀화면/메인게임 구현
+    - 기존의 코드 리팩토링하고 시작
+        - 기존 control_boy.py -> play_mode.py 생성
+        - play_mode.py의 메인 게임루프를 분리하여 main.py를 생성
+
+    1. 로고 모드 구현
+        - 로고모드: 2초간 학교 로고 띄우고 타이틀로 넘어가줄것임
+        - 방법: 최초 init()에서 logo_start_time을 현재시간 get_time()으로 가져옴
+        - update에서 get_time() - logo_start_time > 2.0라면 다음모드로 넘어감
+        - main.py에서 import logo_mode를 해주고 logo_mode로 게임루프 시작
+
+    2. 게임 월드의 이해
+        - 게임모드: 게임 프로그램 실행 중에 지속적으로 머물러있는 특정 상황, 씬, ...
+        - 사용자 입력에 대한 대응방식은 게임모드에 따라 달라짐
+        - 게임모드를 작은 게임루프로 볼수도 있다
+
+    3. 게임 프레임워크
+        - 게임 모드들을 효과적으로 연결하는 소프트웨어 구조
+        - 일종의 Task Switching System
+        - 디자인 패턴중, State Pattern 혹은 Strategy Pattern에 해당됨
+        - 게임 프레임워크 활용 순서
+            - 1. 각각의 모드를 구현
+            - 2. 모드 간의 이동을 구현(로고->타이틀->게임 이런방식)
+
+        - 게임 모드의 구현
+            - init(): 게임 모드 시작할때 초기화
+            - finish(): 게임 모드 끝낼때 종료처리
+            - pause(): 다른 모드로 잠깐 이동
+            - resume(): 현재 모드로 복귀
+
+        - game_framework.py의 이용(함수들)
+            - run(mode): mode를 시작 모드로 하여 게임 실행 시작
+            - quit(): 게임 중단
+            - change_mode(mode): 게임 모드를 mode로 이동. 이전 게임 모드를 완전히 나옴
+            - push_mode(mode): 게임 모드를 mode로 이동. 얘는 이전 게임 모드 데이타가 남아있음
+            - pop_mode(): 이전 게임 모드로 복귀
+
+        - 게임 모드의 뼈대
+            def init(): pass
+            def finish(): pass
+            def update(): pass
+            def draw(): pass
+            def handle_events(): pass
+            def pause(): pass
+            def resume(): pass
+
+        - OOOO_mode.py의 구현과 활용
+            - 내부함수들을 작성(위의 뼈대)
+            - 다른 소스에서 import OOOO_mode를 해서 활용하면 됨
+
+    4. 타이틀 모드를 구현하고 로고모드에서 넘겨보자
+        - title_mode.py구현 -> 위 뼈대 구조를 기본으로 만들면 됨
+        - logo_mode의 update에서 get_time() - logo_start_time >= 2.0이라면
+            game_framework.change_mode(title_mode)
+        - main.py의 import도 약간 수정해서 편리하게 만들어보자
+            import logo_mode as start_mode -> start_mode가 logo_mode가 된다
+
+    5. 이번에는 타이틀 모드에서 플레이 모드로 넘겨보자
+        - title_mode의 handle_event()에서 특정 키를 받으면 넘겨주자
+        - SPACE를 누르면 넘겨줄것이며 튜플로 묶어서 하는방법을 써본다
+            def handle_event():
+                events = get_events()
+                for event in events:
+                    if event.type == SDL_QUIT:
+                        game_framework.quit()
+                    elif event.type == SDL_KEYDOWN and event.key == SDLK_ESCAPE:
+                        game_framework.quit()
+                    elif (event.type, event.key) == (SDL_KEYDOWN, SDLK_SPACE):
+                        game_framework.change_mode(play_mode)
+        - game_mode에서도 ESCAPE가 눌리면 title_mode로 나가도록 구현해보자  pass
+        - change_mode는 finish()가 호출되고 finish()에는 game_world.clear()가 필요
+        - game_world.clear()의 내부
+            def clear():
+                for layer in objects:
+                    layer.clear()
+
+        6. item_mode의 구현
+            - play_mode에서 i가 눌리면 아이템모드로 가보자
+                위는 생략
+                elif event.type == SDL_KEYDOWN and event.key == SDLK_i:
+                    game_framework.push_mode(item_mode)
+            - push_mode를 위해 pause()와 resume()이 callback됨
+            - 실제 내용이 없어도 pass로 뼈대는 만들어줘야함
+
+        7. 게임 프레임워크 분석
+            - list를 이용한 stack 구조로 되어있다.
+            - run(start_mode)
+                - start_mode를 담고있는 스택을 생성
+                - 현재 게임 모드에 대한 게임 루프 진행(stack top == stack[-1])
+                - 종료할때는 스택에 남아있는 모든 게임모드를 차례로 pop하여 제거
+            - change_mode(mode)
+                - 현재 모드를 finish()시킨뒤 pop하여 삭제(스택에 모드가 있다면)
+                - 이후 스택에 mode를 append하고 init
+            - push_mode(mode)
+                - 현재 모드(stack[-1])의 pause()를 호출
+                - 이후 새로운 모드를 스택에 추가하고 init
+            -pop_mode()
+                - 현재 모드를 finish한후 현재 모드 제거(pop)
+                - 이제 stack top(stack[-1])에는 이전모드가 있으므로 해당 모드 resume()호출
+
+
+- LEC14 시간
+    - 시간 개념이 없는 코드의 문제점
+        - CPU 성능에 따라, 물체의 움직이는 속도가 달라짐(CPU 종속적)
+    - 프레임(Frame): 특정 시점에서 씬(장면)을 화면에 그린 한장의 그림
+        - 드로잉(렌더링)의 결과물로 드로잉이 끝나는 시점에 만들어진다
+    - 프레임 시간(Frame Time): 한장의 프레임을 만들어내는데 걸리는 시간
+        - time delta 혹은 delta time이라고 함
+    - 프레임 속도(Frame Rate): 얼마나 빨리 프레임을 만들어 낼 수 있는지를 나타내는 척도
+        - 일반적으로 초당 프레임 출력 횟수흫 많이 사용(FPS: Frame Per Sec)
+        - 컴퓨터 게임은 일반적으로 최소 25~30fps이상이 기준, 최근에는 60~120fps
+    - **** 프레임 시간과 프레임 속도의 관계 ****
+        - Frame Per Sec = 1 / Frame time
+        - 60fps라면 1 / Frame time(delta time)이 60이므로 Frame Time은 1/60초 = 0.0167초
+    - Unix Epoc Time -> 1970.01.01 00시 기준
+    - time 모듈의 time.time()은 Unix Epoc Time에서 시작되어 경과된 시간(초)를 보여줌
+    - 프레임 시간의 계산
+        - frame_time = time() - current_time
+        - frame_rate = 1.0 / frame_time
+    - 프레임 시간을 찍어본 결과 -> 프레임 시간은 균일하지 않음
+        - 왜?: 씬이 복잡하거나, 처리해야 할 계산이 많으면 시간이 많이 걸림
+        - 동일한 씬이라도, 컴퓨터의 성능에 따라서도 차이가 난다
+        - 문제점?: 게임의 실행속도가 컴퓨터/씬의 복잡도에 따라 달라져 게임 밸런싱에 문제가 생김
+        - 해결방안?: 싱크 고정 -> 안좋다 쓰지말자
+    - 이제 앞으로 게임 객체들의 운동에 "시간"의 개념을 도입하면 위의 문제가 해결됨
+        - 거리 = 경과시간 * 속도
+        - 위치 = 초기위치 + 거리
+        - X(다음프레임) = X(현재프레임) + vΔt (X는 객체의 위치, v는 객체의 속도)
+        - distance = frame_time * velocity
+        - x = x + distance
+    - 프레임 시간에 따른 객체 이동을 구현해보자
+        - 우선 현실의 단위로 정의를 먼저 내리자
+            - PIXEL_PER_METER = (10.0 / 0.3) -> 10픽셀이 30cm이다
+            - RUN_SPEEED_KMPH = 20.0    -> boy의 달리기 속도가 20km/h
+            - RUN_SPEED_MPM = (RUN_SPEED_KMPH * 1000.0 / 60.0)  -> meter per minuit
+            - RUN_SPEED_MPS = (RUN_SPEED_MPM / 60.0)-> meter per sec
+            - RUN_SPEED_PPS = (RUN_SPEED_MPS * PIXEL_PER_METER) -> pixer per sec
+        - 그러면 이제 boy의 위치를 계산하는 식이 달라진다
+            - boy.x += boy.dir * RUN_SPEED_PPS * game_framework.frame_time
+        - ++ 폰트 로딩 및 렌더(pico2d)
+            - font = load_font('폰트이름')
+            - font.draw(x,y, f스트링, RGB) -> RGB범위는 0~255
+    - 프레임 시간에 따라 액션 프레임도 조절해보자
+        - 마찬가지로 단위를 정의 내리고 시작
+            - TIME_PER_ACTION = 0.5
+            - ACTION_PER_TIME = 1.0 / TIME_PER_ACTION
+            - FRAMES_PER_ACTION = 8
+        - 이제 스프라이트 시트 프레임 계산 식이 달라짐
+            - boy.frame = (boy.frame + FRAMES_PER_ACTION * ACTION_PER_TIME * game_framework.frame_time) % 8
+            - 이때 frame이 float형이 되므로 실제 사용시(clip_draw) int로 형변환 필요해짐
+
+- LEC15 충돌처리
+    - 충돌검사: 게임 상의 오브젝트 간에 충돌이 발생했는지를 검사하는것
+        - 모든 게임에서 가장 기본적인 물리 계산임
+        - 기본적으로 시간이 많이 소요되므로 오브젝트 특성에 따라 최적화해주어야함
+            - O(n^2) 알고리즘
+            - n개의 물체중 2개를 골라 충돌검사 = nC2 = n(n-1)/n!
+    - 충돌처리: 충돌이 난 이후에 어떻게 할것인가?
+
+    - 충돌검사 방법
+        - 픽셀단위 충돌검사: 두개의 오브젝트들의 모든 점들을 일일이 비교
+            - 가장 정확하지만 오브젝트들의 픽셀수를 곱한만큼 시간이 소요됨
+        - 바운딩 박스 충돌검사: 오브젝트를 감싸는 사각형(바운딩 박스)의 충돌을 비교
+            - 사각형 2개의 교차여부만 결정하면 되므로 매우 빠름
+            - 다만 오브젝트의 형태가 복잡하면, 충돌 검사 결과가 매우 부정확함
+
+        - 그러면 BB로 충돌검사 이꾸요
+            - boy, ball에 get_bb() 함수 생성
+                def get_bb(self):
+                    return self.x-50, self.y-50, self.x + 50, self.y + 50
+            - 이후 game_world의 collide(a,b) 함수를 만들어 충돌검사를 한다
+                def collide(a,b):
+                    left_a, bottom_a, right_a, top_a = a.get_bb()
+                    left_b, bottom_b, right_b, top_b = b.get_bb()
+
+                    if left_a > right_b: return False
+                    if right_a < left_b: return False
+                    if top_a < bottom_b: return False
+                    if bottom_a > top_b: return False
+
+                    return True
+            - 위 함수의 방법: 일단 아닌걸 먼저 False로 리턴하고 아닌 조건을 전부 통과하면 충돌임
+        - 디버그용 BB 그려보기: draw_rectangle(*self.get_bb()) -> *은 튜플을 풀어헤쳐준다
+
+    - 충돌처리
+        - 미리 어떻게 할것인지 정해서 만들어둔다
+        - 충돌 그룹의 구현
+            - game_world.py에 collision_pair이라는 딕셔너리로 충돌페어를 만든다
+            - 충돌 페어를 추가하는 함수 add_collision_pair(group, a, b)
+            - 충돌 객체를 제거하는 함수 remove_collision_object(o) -> 충돌 페어에서 없애주는거임
+            - 완전히 충돌한 객체를 제거 remove_object(o) 추가
+        - 게임 모드의 init에서 충돌 페어를 미리 등록해두면 업데이트에서 game_world.handle_collisions()로 충돌처리 해줌
+            def handle_collisions():
+                for group, pairs in collision_pairs.items():
+                    for a in pairs[0]:
+                        for b in pairs[1]:
+                            if collide(a, b):
+                                a.handle_collision(group, b)
+                                b.handle_collision(group, a)
+        - 그러면 각 객체 class에 handle_collision 을 만들어 충돌처리 로직을 만들고 충돌처리할때 콜백되도록 하면 되겠다
+
+    - 충돌 검사 및 처리 기본 절차(사실상 위 요약임)
+        - 충돌 처리가 필요한 객체에 대해서 충돌 영역 정의
+        - 디버그를 위해서 충돌 영역을 시각화할수 있도록 설정
+        - 공간에 이미 존재하는 여러 객체들 중 충돌처리가 필요한 두개의 객체 A,B를 골라서 등록
+        - 만약 게임 실행중에 생성된 객체에 대한 충돌처리가 필요하면, 그때마다 실시간으로 A,B를 등록
+            - 만약 한쪽이 이미 등록되어있다면 None으로 처리
+        - 등록된 모든 충돌 페어에 대해서 매 프레임 마다 충돌 검사를 실시
+        - 충돌이 발생한 경우, A,B 각각에 대해서 충돌 처리하도록 지시
+
+    - 충돌검사의 실제적용
+        - 정확됴를 높이면서 속도적 이득도 보기위해, 오브젝트를 적절한 개수의 BB로 나눔
+        - 잘게 나누면 나눌수록, 정확도 올라감
+
+
+- LEC16 인공지능 skip 이미 많이 다뤄서 잘암
+    - 요약
+        - Action, Condition: 리프 노드
+        - Sequence: 하나의 자식 노드라도 Fail이면 Fail
+        - Selector: 하나의 자식 노드라도 Success라면 Success
+        - 기본적으로 BT는 전위운행하면서 실행된다.
+
+- LEC17 스크롤링
+    - 스크롤링: 그림이나 이미지의 일부분을 디스플레이 화면 위에서 상하좌우로 움직이면서 나타내는 기법
+    - 게임 맵은 반 드 시 실제 물리값으로 크기가 표시되어야 한다
+    - 스크롤링을 위해서 실제 좌표와 화면 좌표를 분리한다
+    - 스크린 윈도우를 이용한 스크롤링
+        1. 맵 상의 플레이어의 실제 좌표 계산
+        2. 플레이어를 가운데에 놓고, 맵 상의 윈도우 좌표를 계산
+            - window_left == x-canvas_width//2
+            - window_bottom == y - canvas_height//2
+        3. 윈도우 영역을 클리핑하여 캔버스에 그림
+            - clip_draw_to_origin: 피봇 맨 왼쪽 맨 아래 기준
+        4. 플레이어를 캔버스에 그림
+
+    - 실제 구현
+        - 우선 clamp()함수부터 알고가자
+            def clamp(min, x, max):
+                return max(min, min(x,max)) -> x를 min~max사이로 고정시켜줌
+
+        - background.py의 fixed_background
+            init():
+                cw, ch = get_canvas_width(), get_canvas_height()
+                w, h = image.w, image.h
+
+            update():
+                window_left = clamp(0, int(boy.x) - cw//2, w - cw - 1)
+                window_bottom = clamp(0, int(boy.y) - ch//2, h - ch - 1)
+
+            draw():
+                clip_draw_to_origin(window.left, window.bottom, cw, ch, 0, 0)
+
+        - boy의 좌표계산도 달라진다
+            x = background.w // 2
+            y = background.h // 2
+
+            update():
+                x = clamp(50, x, w-50)
+                y = clamp(50, y, h-50)
+
+            draw():
+                sx, sy = get_canvas_width//2, get_canvas_height//2
+                image.clip_draw(int(frame)*100, action*100, 100, 100, sx, sy)
+    - 다른 스크롤링은 그냥 읽어보자
+
+
+- LEC18 게임 데이터
+    - 직렬화: 프로그램 내의 객체 데이터를 외부에 저장 또는 내보내는 행위
+        - 나중에 복구할 수 있어야함
+
+    - 객체의 초기상태 -> 소프트 코딩이 필요
+        - 파이썬의 파일 IO
+            - C와 매우 유사함
+            - open()으로 열고 close()로 닫음
+            - write(), read()는 각각 str을 읽고 쓴다(text mode의 경우)
+
+    - JSON을 이용하자!
+        - JSON: Java Script Object Notation
+        - File write/read의 경우 문자열을 실제 데이터로 변환하는 작업이 필수적 -> 까다롭고 복잡하고 에러발생 소지가 많음
+        - 객체를 교환하기 위한 텍스트 형식 표준이 JSON
+        - 파이썬의 리스트와 딕셔너리와 거의 동일함 -> 문자열 사용시 큰따옴표만 허용함
+        - 파이썬의 JSON 모듈 import json
+            - s = json.dumps(o)  객체 o를 문자열 s로 변환
+            - o = json.loads(s)  문자열 s를 객체 o로 면환
+            - json.dump(o,f) -> 객체 o를 파일 f로 저장
+            - o = json.load(f) -> 파일 f를 로드해서 객체 o로 변환
+        - __dict__: 클래스를 이용해서 생성한 객체는 모든 속성(멤버변수)를 dictionary 형태로 내부적으로 저장하여 사용
+            - obj.__dict__라는 내부변수가 바로 이 dictionary
+            - 이를 이용하면 객체의 속성을 쉽게 바꿀 수 있다(다른 dictionart 데이터를 이용해서 바꿔주면 됨)
+
+    - 그러면 json으로 play_mode의 좀비를 초기화해보자
+        with open('zombie_data.json', 'r') as f:
+            zombie_data_list = json.load(f)
+            for z in zombie_data_list:
+                zombie = Zombie()
+                zombie.__dict__.update(z)
+                game_world.add_object(zombie, 1)
+        - 이로서 json의 좀비 데이터 딕셔너리가 새로 생성되는 좀비에 들어가 초기화시켜준다
+        - with: 파일 입출력때 써주면 with문 종료시 알아서 close 해준다
+
+    - TOML: 설정 데이터를 좀 더 읽기 쉽게 저장하기 위함 텍스트 파일 형식
+        - JSON과 달리 dict 만들때 key에도 ""를 해줄필요가 없음 개굿
+        - 그러면 이걸로도 좀비 데이터를 초기화해보자
+        with open('zombie_data.toml', 'rb') as f:
+            zombie_data_list = tomlib.load(f)['zombies']
+            for z in zombie_data_list:
+                zombie = Zombie()
+                zombie.__dict.update(z)
+                game_world.add_object(zombie, 1)
+
+    - Python Pickle: 파이썬이 제공하는 객체 직렬화 모듈
+        - 대부분의 파이썬 내부 데이터를 직렬화할 수 있음
+            pickle.dump(o,f) -> 피클
+            read = pickle.load(f) -> 역피클
+        - 피클로 안되는것
+            - 클래스 변수
+            - 순수 파이썬이 아닌, 외부 라이브러리를 통해서 획득한 데이터
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

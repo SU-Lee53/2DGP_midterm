@@ -16,7 +16,7 @@ from pico2d import *
 ####   애니메이션		####
 ######################
 
-# draw_now로 생기는 플리핑(깜빡임)
+# draw_now로 생기는 플리커링(깜빡임)
 # 더블 버퍼링으로 해결
 # draw: 백버퍼에 그림
 # update_canvas: 백버퍼 그려줌
@@ -93,10 +93,11 @@ def handle_events():
 numbers = [n for n in range(1,10)]
 odd_numbers = [n for n in range(1, 30) if n%2 == 1]
 even_numbers = [n for n in range(1, 30) if n%2 == 0]
+randnum = [random.randint(0,100) for _ in range(30)]
 print(numbers)
 print(odd_numbers)
 print(even_numbers)
-
+print(randnum)
 
 ############################
 ####     게임 오브젝트 		####
@@ -230,7 +231,7 @@ class Boy:
 #		 이 코드는 transition에서 현재 상태의 키를 갖는 밸류의 쌍을 items()로 불러와
 #		 key와 value를 각각 check_event와 next_state에 넣어줌
 #		- if check_event(e)는 함수 호출시 받은 이벤트 튜플 e가
-#		 해당 이벤트의 조건이 맞을시 True를 반환
+#		 transitions에서 꺼내온 이벤트와 조건이 맞을시 True를 반환
 #		- True라면 현재 이벤트.exit() -> 현재 이벤트 = 다음 이벤트 -> 현재 이벤트.enter()
 #		- 이때 각각의 상태 enter, exit에 이벤트 튜플 e를 넘겨주는데 이는 상태변화의 원인을 알려주어
 #		 각 상태로 인한 enter, exit시 필요한 작업을 수행하기 위함임
